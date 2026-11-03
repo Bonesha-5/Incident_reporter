@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "783971341656",
+    "project_id": "aluincidentreporter",
+    "storage_bucket": "aluincidentreporter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:783971341656:android:2b8aae25d21f5d86efc12d",
+        "android_client_info": {
+          "package_name": "com.example.alu_incident_reporter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWF01paqNMKBDA7zuJstnRR8TNz80zKJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
