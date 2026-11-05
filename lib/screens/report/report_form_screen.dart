@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../models/incident.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/incident_provider.dart';
 import '../../widgets/app_text_field.dart';
@@ -13,8 +14,11 @@ import '../../widgets/primary_button.dart';
 import 'location_picker_sheet.dart';
 import 'report_submitted_screen.dart';
 
+/// Creates a new report, or edits [existing] if one is given.
 class ReportFormScreen extends StatefulWidget {
-  const ReportFormScreen({super.key});
+  const ReportFormScreen({super.key, this.existing});
+
+  final Incident? existing;
 
   @override
   State<ReportFormScreen> createState() => _ReportFormScreenState();
@@ -32,14 +36,36 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   String? _location;
   String _urgency = 'medium';
   bool _isAnonymous = false;
-  XFile? _photo;
-  Uint8List? _photoBytes; // for the preview
+  XFile? _photo; // a newly picked photo
+  Uint8List? _photoBytes; // its preview
+  String? _existingPhotoUrl; // photo already saved (when editing)
   bool _triedSubmit = false;
+
+  bool get _isEditing => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
     context.read<IncidentProvider>().clearSubmitError();
+
+    // Fill the form when editing
+    final existing = widget.existing;
+    if (existing != null) {
+      _titleController.text = existing.title;
+      _descriptionController.text = existing.description;
+      _category = existing.category;
+      _otherCategoryController.text = existing.otherCategory ?? '';
+      if (AppConstants.campusLocations.contains(existing.location)) {
+        _location = existing.location;
+      } else {
+        _location = kSomewhereElse;
+        _customLocationController.text = existing.location;
+      }
+      _locationDetailController.text = existing.locationDetail ?? '';
+      _urgency = existing.urgency;
+      _isAnonymous = existing.isAnonymous;
+      _existingPhotoUrl = existing.photoUrl;
+    }
   }
 
   @override
@@ -80,7 +106,6 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     if (source == null) return;
 
     try {
-      // Shrinks big camera photos to ~200–500 KB before upload
       final picked = await ImagePicker().pickImage(
         source: source,
         maxWidth: 1280,
@@ -104,6 +129,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   void _removePhoto() => setState(() {
     _photo = null;
     _photoBytes = null;
+    _existingPhotoUrl = null;
   });
 
   // ---------- Location ----------
@@ -135,20 +161,44 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
+    final provider = context.read<IncidentProvider>();
 
     final location = _location == kSomewhereElse
         ? _customLocationController.text.trim()
         : _location!;
     final detail = _locationDetailController.text.trim();
+    final otherCategory = _category == 'other'
+        ? _otherCategoryController.text
+        : null;
 
-    final incident = await context.read<IncidentProvider>().submitIncident(
+    if (_isEditing) {
+      final saved = await provider.updateIncident(
+        existing: widget.existing!,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        category: _category!,
+        otherCategory: otherCategory,
+        location: location,
+        locationDetail: detail.isEmpty ? null : detail,
+        urgency: _urgency,
+        isAnonymous: _isAnonymous,
+        newPhoto: _photo,
+        keepExistingPhoto: _existingPhotoUrl != null,
+      );
+      if (saved && mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Changes saved')));
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    final incident = await provider.submitIncident(
       reporter: user,
       title: _titleController.text,
       description: _descriptionController.text,
       category: _category!,
-      otherCategory: _category == 'other'
-          ? _otherCategoryController.text
-          : null,
+      otherCategory: otherCategory,
       location: location,
       locationDetail: detail.isEmpty ? null : detail,
       urgency: _urgency,
@@ -180,8 +230,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   String? _validateDescription(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Please describe the problem';
-    if (text.length < 10)
+    if (text.length < 10) {
       return 'Add a little more detail (at least 10 characters)';
+    }
     return null;
   }
 
@@ -193,7 +244,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Report an issue')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Edit report' : 'Report an issue'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -295,6 +348,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
             const SizedBox(height: 8),
             _PhotoBox(
               bytes: _photoBytes,
+              networkUrl: _existingPhotoUrl,
               onPick: _pickPhoto,
               onRemove: _removePhoto,
             ),
@@ -324,9 +378,6 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -338,7 +389,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
               const SizedBox(height: 16),
             ],
             PrimaryButton(
-              label: 'Submit report',
+              label: _isEditing ? 'Save changes' : 'Submit report',
               onPressed: _submit,
               isLoading: provider.isSubmitting,
             ),
@@ -501,11 +552,13 @@ class _LocationButton extends StatelessWidget {
 class _PhotoBox extends StatelessWidget {
   const _PhotoBox({
     required this.bytes,
+    required this.networkUrl,
     required this.onPick,
     required this.onRemove,
   });
 
   final Uint8List? bytes;
+  final String? networkUrl;
   final VoidCallback onPick;
   final VoidCallback onRemove;
 
@@ -513,18 +566,27 @@ class _PhotoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    if (bytes != null) {
+    // A new photo wins over the saved one
+    final Widget? image = bytes != null
+        ? Image.memory(
+            bytes!,
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          )
+        : networkUrl != null
+        ? Image.network(
+            networkUrl!,
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          )
+        : null;
+
+    if (image != null) {
       return Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.memory(
-              bytes!,
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-          ),
+          ClipRRect(borderRadius: BorderRadius.circular(14), child: image),
           Positioned(
             top: 8,
             right: 8,
