@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'firebase_options.dart';
+import 'app.dart';
 import 'config/supabase_config.dart';
+import 'firebase_options.dart';
+import 'providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,24 +20,17 @@ Future<void> main() async {
     anonKey: SupabaseConfig.anonKey,
   );
 
-  runApp(const MyApp());
-}
+  // Load the saved theme BEFORE the first screen appears
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadTheme();
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Text(
-            'Firebase + Supabase connected ✅',
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
-      ),
-    );
-  }
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
+        // more providers (auth, incidents…) will be added here
+      ],
+      child: const AluIncidentApp(),
+    ),
+  );
 }
