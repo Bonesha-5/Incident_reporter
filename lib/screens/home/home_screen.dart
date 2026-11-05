@@ -10,6 +10,7 @@ import '../../providers/incident_provider.dart';
 import '../../widgets/incident_card.dart';
 import '../../widgets/info_banner.dart';
 import '../../widgets/primary_button.dart';
+import '../reports/report_actions.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -253,7 +254,11 @@ class HomeScreen extends StatelessWidget {
                         .map(
                           (incident) => Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: IncidentCard(incident: incident),
+                            child: IncidentCard(
+                              incident: incident,
+                              onTap: () =>
+                                  openReportDetails(context, incident.id),
+                            ),
                           ),
                         )
                         .toList(),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../profile/profile_screen.dart';
 import '../report/report_form_screen.dart';
-import 'home_placeholder_screen.dart';
+import '../reports/my_reports_screen.dart';
+import '../reports/reports_screen.dart';
 import 'home_screen.dart';
 
 /// The student's main frame: 4 tabs + the blue "+" button.
@@ -28,14 +30,13 @@ class _StudentShellState extends State<StudentShell> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      // IndexedStack keeps each tab's scroll position when switching
       body: IndexedStack(
         index: _index,
         children: [
           HomeScreen(onOpenTab: _openTab, onReport: _openReportForm),
-          const _ComingSoon(title: 'Campus reports'),
-          const _ComingSoon(title: 'My reports'),
-          const HomePlaceholderScreen(), // temporary Profile
+          const ReportsScreen(),
+          MyReportsScreen(onReport: _openReportForm),
+          const ProfileScreen(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -70,7 +71,7 @@ class _StudentShellState extends State<StudentShell> {
               selected: _index == 1,
               onTap: () => _openTab(1),
             ),
-            const SizedBox(width: 72), // space for the + button
+            const SizedBox(width: 72),
             _NavItem(
               icon: Icons.assignment_outlined,
               activeIcon: Icons.assignment_rounded,
@@ -140,16 +141,4 @@ class _NavItem extends StatelessWidget {
       ),
     );
   }
-}
-
-/// TEMPORARY: tabs we build next.
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
-    body: const Center(child: Text('Coming next')),
-  );
 }
