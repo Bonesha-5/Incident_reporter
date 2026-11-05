@@ -89,6 +89,23 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() => _service.logout();
 
+  /// The "Status update alerts" switch on Profile.
+  /// Updates the screen at once, and undoes it if saving fails.
+  Future<bool> setNotifyStatusUpdates(bool value) async {
+    final previous = _user;
+    if (previous == null) return false;
+    _user = previous.copyWith(notifyStatusUpdates: value);
+    notifyListeners();
+    try {
+      await _service.updateNotifyPreference(previous.uid, value);
+      return true;
+    } catch (_) {
+      _user = previous;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Clears an old error when a new screen opens.
   void clearError() => _errorMessage = null;
 

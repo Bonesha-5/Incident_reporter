@@ -50,6 +50,9 @@ class AuthService {
 
   Future<void> logout() => _auth.signOut();
 
+  Future<void> updateNotifyPreference(String uid, bool value) =>
+      _users.doc(uid).update({'notifyStatusUpdates': value});
+
   Future<void> sendPasswordReset(String email) =>
       _auth.sendPasswordResetEmail(email: email.trim().toLowerCase());
 
