@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'providers/theme_provider.dart';
-import 'screens/setup_check_screen.dart';
+import 'screens/auth/auth_gate.dart';
 
 class AluIncidentApp extends StatelessWidget {
   const AluIncidentApp({super.key});
@@ -18,7 +18,7 @@ class AluIncidentApp extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeProvider.themeMode,
-      home: const SetupCheckScreen(),
+      home: const AuthGate(),
     );
   }
 }
