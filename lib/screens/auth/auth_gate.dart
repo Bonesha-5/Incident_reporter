@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_placeholder_screen.dart';
+import '../home/student_shell.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 
@@ -13,13 +14,16 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = context.watch<AuthProvider>().status;
+    final auth = context.watch<AuthProvider>();
 
-    return switch (status) {
+    return switch (auth.status) {
       AuthStatus.loading => const _SplashView(),
       AuthStatus.signedOut => const LoginScreen(),
       AuthStatus.unverified => const VerifyEmailScreen(),
-      AuthStatus.signedIn => const HomePlaceholderScreen(),
+      AuthStatus.signedIn =>
+        (auth.user?.isStaff ?? false)
+            ? const HomePlaceholderScreen() // staff dashboard comes later
+            : const StudentShell(),
     };
   }
 }

@@ -19,7 +19,7 @@ class HomePlaceholderScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(user.isStaff ? 'Staff (temporary)' : 'Home (temporary)'),
+        title: Text(user.isStaff ? 'Staff (temporary)' : 'Profile (temporary)'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
