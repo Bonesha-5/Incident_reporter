@@ -73,14 +73,35 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.user;
+    final user = context.watch<AuthProvider>().user;
     final incidents = context.watch<IncidentProvider>();
     final themeProvider = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) return const SizedBox.shrink();
+
+    // ---------- Stats: different for students and staff ----------
+    final int firstCount;
+    final String firstLabel;
+    final int secondCount;
+    final String secondLabel;
+    if (user.isStaff) {
+      final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+      firstCount = incidents.allIncidents
+          .where((i) => i.status != 'resolved' && i.status != 'rejected')
+          .length;
+      firstLabel = 'Open reports';
+      secondCount = incidents.allIncidents
+          .where((i) => i.status == 'resolved' && i.updatedAt.isAfter(weekAgo))
+          .length;
+      secondLabel = 'Resolved this week';
+    } else {
+      firstCount = incidents.myIncidents.length;
+      firstLabel = 'Reports made';
+      secondCount = incidents.myMeTooIncidents.length;
+      secondLabel = 'Me too taps';
+    }
 
     Widget sectionTitle(String text) => Padding(
       padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
@@ -209,9 +230,9 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      stat(incidents.myIncidents.length, 'Reports made'),
+                      stat(firstCount, firstLabel),
                       const SizedBox(width: 10),
-                      stat(incidents.myMeTooIncidents.length, 'Me too taps'),
+                      stat(secondCount, secondLabel),
                     ],
                   ),
 
@@ -268,32 +289,35 @@ class ProfileScreen extends StatelessWidget {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        SwitchListTile(
-                          secondary: Icon(
-                            Icons.notifications_none_rounded,
-                            color: scheme.onPrimaryContainer,
-                          ),
-                          title: const Text('Status update alerts'),
-                          subtitle: const Text(
-                            'Pop-up when staff update your reports',
-                          ),
-                          value: user.notifyStatusUpdates,
-                          onChanged: (value) async {
-                            final ok = await context
-                                .read<AuthProvider>()
-                                .setNotifyStatusUpdates(value);
-                            if (!ok && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Couldn't save. Check your internet.",
+                        // Students only: staff never receive status alerts
+                        if (!user.isStaff) ...[
+                          SwitchListTile(
+                            secondary: Icon(
+                              Icons.notifications_none_rounded,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                            title: const Text('Status update alerts'),
+                            subtitle: const Text(
+                              'Pop-up when staff update your reports',
+                            ),
+                            value: user.notifyStatusUpdates,
+                            onChanged: (value) async {
+                              final ok = await context
+                                  .read<AuthProvider>()
+                                  .setNotifyStatusUpdates(value);
+                              if (!ok && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Couldn't save. Check your internet.",
+                                    ),
                                   ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        const Divider(height: 1),
+                                );
+                              }
+                            },
+                          ),
+                          const Divider(height: 1),
+                        ],
                         ListTile(
                           leading: Icon(
                             Icons.lock_outline_rounded,

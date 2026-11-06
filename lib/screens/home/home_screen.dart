@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/incident_provider.dart';
 import '../../widgets/incident_card.dart';
 import '../../widgets/info_banner.dart';
+import '../../widgets/notification_bell.dart';
 import '../../widgets/primary_button.dart';
 import '../reports/report_actions.dart';
 
@@ -98,22 +99,7 @@ class HomeScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Notifications',
-                              onPressed: () {}, // built later
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.notifications_none_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
+                            const NotificationBell(),
                             const SizedBox(width: 10),
                             Semantics(
                               button: true,
