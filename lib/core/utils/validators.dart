@@ -16,7 +16,8 @@ class Validators {
   static bool isAluEmail(String email) {
     final e = email.trim().toLowerCase();
     return e.endsWith('@${AppConstants.studentEmailDomain}') ||
-        e.endsWith('@${AppConstants.staffEmailDomain}');
+        e.endsWith('@${AppConstants.staffEmailDomain}') ||
+        AppConstants.testStaffEmails.contains(e);
   }
 
   static String? aluEmail(String? value) {

@@ -103,6 +103,58 @@ class IncidentService {
     await batch.commit();
   }
 
+  /// STAFF ONLY: changes the status, adds a timeline step, and creates
+  /// a notification for the reporter and everyone who tapped Me too.
+  /// A batch saves all of it together, or none of it.
+  Future<void> updateStatus({
+    required Incident incident,
+    required String newStatus,
+    required String note,
+    required AppUser staff,
+  }) async {
+    final ref = _incidents.doc(incident.id);
+    final batch = _db.batch();
+
+    batch.update(ref, {
+      'status': newStatus,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    batch.set(ref.collection(AppConstants.updatesCollection).doc(), {
+      'status': newStatus,
+      'note': note.trim(),
+      'staffId': staff.uid,
+      'staffName': staff.fullName,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final recipients = {incident.reporterId, ...incident.meTooUserIds}
+      ..remove(staff.uid);
+    for (final userId in recipients) {
+      batch.set(_db.collection(AppConstants.notificationsCollection).doc(), {
+        'userId': userId,
+        'incidentId': incident.id,
+        'incidentTitle': incident.title,
+        'status': newStatus,
+        'message': note.trim(),
+        'reason': userId == incident.reporterId ? 'reporter' : 'me_too',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  /// STAFF ONLY: looks up a user's name (for anonymous reports).
+  Future<String?> fetchUserName(String uid) async {
+    final doc = await _db
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .get();
+    return doc.data()?['fullName'] as String?;
+  }
+
   /// Adds or removes a "Me too".
   /// A transaction reads the latest data first, so double taps
   /// can never count the same person twice.

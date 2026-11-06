@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
-import '../home/home_placeholder_screen.dart';
 import '../home/student_shell.dart';
+import '../staff/staff_shell.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 
@@ -22,7 +22,7 @@ class AuthGate extends StatelessWidget {
       AuthStatus.unverified => const VerifyEmailScreen(),
       AuthStatus.signedIn =>
         (auth.user?.isStaff ?? false)
-            ? const HomePlaceholderScreen() // staff dashboard comes later
+            ? const StaffShell()
             : const StudentShell(),
     };
   }

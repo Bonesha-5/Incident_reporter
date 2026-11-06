@@ -8,7 +8,10 @@ import '../../models/incident.dart';
 import '../../models/incident_update.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/incident_provider.dart';
+import '../../widgets/primary_button.dart';
 import '../../widgets/status_chip.dart';
+import '../../widgets/urgency_chip.dart';
+import '../staff/update_status_sheet.dart';
 import 'report_actions.dart';
 
 class IncidentDetailsScreen extends StatefulWidget {
@@ -21,10 +24,10 @@ class IncidentDetailsScreen extends StatefulWidget {
 }
 
 class _IncidentDetailsScreenState extends State<IncidentDetailsScreen> {
-  // Created once, so the timeline doesn't re-subscribe on every rebuild
   late final Stream<List<IncidentUpdate>> _updates = context
       .read<IncidentProvider>()
       .updatesFor(widget.incidentId);
+  Future<String?>? _hiddenNameFuture; // staff only
 
   void _openPhoto(String url) {
     showDialog(
@@ -80,16 +83,33 @@ class _IncidentDetailsScreenState extends State<IncidentDetailsScreen> {
       );
     }
 
+    final isStaff = user?.isStaff ?? false;
     final isMine = user != null && incident.isReportedBy(user.uid);
     final canEdit = isMine && incident.canBeEdited;
 
-    final String reporterText;
-    if (incident.isAnonymous) {
-      reporterText = isMine
-          ? 'You (hidden from other students)'
-          : 'Anonymous student';
+    // ---------- Who reported it ----------
+    final Widget reporterRow;
+    if (incident.isAnonymous && isStaff && !isMine) {
+      _hiddenNameFuture ??= provider.reporterNameFor(incident.reporterId);
+      reporterRow = FutureBuilder<String?>(
+        future: _hiddenNameFuture,
+        builder: (context, snapshot) => _MetaRow(
+          icon: Icons.person_outline_rounded,
+          text: snapshot.connectionState != ConnectionState.done
+              ? 'Loading reporter…'
+              : '${snapshot.data ?? 'Unknown student'} (anonymous to students)',
+        ),
+      );
     } else {
-      reporterText = isMine ? 'You' : (incident.reporterName ?? 'Student');
+      final String text;
+      if (incident.isAnonymous) {
+        text = isMine
+            ? 'You (hidden from other students)'
+            : 'Anonymous student';
+      } else {
+        text = isMine ? 'You' : (incident.reporterName ?? 'Student');
+      }
+      reporterRow = _MetaRow(icon: Icons.person_outline_rounded, text: text);
     }
 
     return Scaffold(
@@ -161,6 +181,25 @@ class _IncidentDetailsScreenState extends State<IncidentDetailsScreen> {
             const SizedBox(width: 12),
         ],
       ),
+
+      // ---------- Staff action at the bottom ----------
+      bottomNavigationBar: isStaff
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  border: Border(top: BorderSide(color: scheme.outline)),
+                ),
+                child: PrimaryButton(
+                  label: 'Update status',
+                  icon: Icons.edit_note_rounded,
+                  onPressed: () => showUpdateStatusSheet(context, incident),
+                ),
+              ),
+            )
+          : null,
+
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
@@ -216,7 +255,7 @@ class _IncidentDetailsScreenState extends State<IncidentDetailsScreen> {
             runSpacing: 8,
             children: [
               StatusChip(status: incident.status),
-              _UrgencyChip(urgency: incident.urgency),
+              UrgencyChip(urgency: incident.urgency),
               _OutlineChip(text: incident.categoryLabel),
             ],
           ),
@@ -226,14 +265,14 @@ class _IncidentDetailsScreenState extends State<IncidentDetailsScreen> {
             icon: Icons.schedule_rounded,
             text: 'Reported ${Formatters.dateTime(incident.createdAt)}',
           ),
-          _MetaRow(icon: Icons.person_outline_rounded, text: reporterText),
+          reporterRow,
           const SizedBox(height: 18),
 
           // ---------- Me too ----------
           _MeTooCard(
             incident: incident,
             isMine: isMine,
-            isStaff: user?.isStaff ?? false,
+            isStaff: isStaff,
             hasMeToo: user != null && incident.hasMeTooFrom(user.uid),
           ),
           const SizedBox(height: 22),
@@ -323,53 +362,6 @@ class _OutlineChip extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-}
-
-class _UrgencyChip extends StatelessWidget {
-  const _UrgencyChip({required this.urgency});
-  final String urgency;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final label = '${AppConstants.urgencyLevels[urgency] ?? urgency} urgency';
-
-    if (urgency == 'low' || urgency == 'medium') {
-      return _OutlineChip(text: label);
-    }
-    final isEmergency = urgency == 'emergency';
-    final background = isEmergency
-        ? const Color(0xFFC8261F)
-        : (isDark ? const Color(0xFF3A1A1A) : const Color(0xFFFDECEB));
-    final foreground = isEmergency
-        ? Colors.white
-        : (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFC8261F));
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isEmergency) ...[
-            Icon(Icons.warning_amber_rounded, size: 14, color: foreground),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: foreground,
-            ),
-          ),
-        ],
       ),
     );
   }

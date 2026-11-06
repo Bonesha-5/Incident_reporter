@@ -215,6 +215,47 @@ class IncidentProvider extends ChangeNotifier {
     }
   }
 
+  // ---------- Staff ----------
+
+  final Map<String, String?> _nameCache = {};
+
+  /// Staff only: the real name behind an anonymous report.
+  Future<String?> reporterNameFor(String uid) async {
+    if (_nameCache.containsKey(uid)) return _nameCache[uid];
+    try {
+      final name = await _incidentService.fetchUserName(uid);
+      _nameCache[uid] = name;
+      return name;
+    } catch (e) {
+      debugPrint('FETCH NAME ERROR: $e');
+      return null;
+    }
+  }
+
+  /// Returns an error message, or null if it worked.
+  Future<String?> updateStatus(
+    Incident incident,
+    String newStatus,
+    String note,
+  ) async {
+    final staff = _user;
+    if (staff == null || !staff.isStaff) {
+      return 'Only staff can update the status.';
+    }
+    try {
+      await _incidentService.updateStatus(
+        incident: incident,
+        newStatus: newStatus,
+        note: note,
+        staff: staff,
+      );
+      return null;
+    } catch (e) {
+      debugPrint('UPDATE STATUS ERROR: $e');
+      return "Couldn't update the status. Check your internet and try again.";
+    }
+  }
+
   // ---------- Helpers ----------
 
   /// Uploads a photo; returns its link, or null (with an error) if it failed.

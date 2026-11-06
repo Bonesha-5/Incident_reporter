@@ -17,6 +17,14 @@ class AppConstants {
   static const String studentEmailDomain = 'alustudent.com';
   static const String staffEmailDomain = 'alueducation.com';
 
+  // TESTING ONLY: exact emails allowed outside ALU domains, because
+  // no @alueducation.com account was available for the staff demo.
+  // Their role still starts as "student" and is promoted in Firestore.
+  // Empty this list for production.
+  static const List<String> testStaffEmails = [
+    'uwinezaboneshakevine@gmail.com',
+  ];
+
   // Firestore collection names (typed once, used everywhere)
   static const String usersCollection = 'users';
   static const String incidentsCollection = 'incidents';
