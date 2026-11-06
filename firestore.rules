@@ -1,0 +1,154 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper functions ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isStaff() {
+      return verified()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+    }
+
+    // True if the update only touches the listed fields
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function validStatus(status) {
+      return status in ['in_review', 'in_progress', 'resolved', 'rejected'];
+    }
+
+    // A student adding or removing ONLY their own "Me too"
+    function isMeTooChange() {
+      let before = resource.data.meTooUserIds;
+      let after = request.resource.data.meTooUserIds;
+      let me = request.auth.uid;
+      return changedOnly(['meTooUserIds', 'meTooCount'])
+        && resource.data.reporterId != me
+        && (
+          (!(me in before) && (me in after)
+            && after.hasAll(before) && after.size() == before.size() + 1
+            && request.resource.data.meTooCount == resource.data.meTooCount + 1)
+          ||
+          ((me in before) && !(me in after)
+            && before.hasAll(after) && after.size() == before.size() - 1
+            && request.resource.data.meTooCount == resource.data.meTooCount - 1)
+        );
+    }
+
+    // ---------- users ----------
+
+    match /users/{uid} {
+      // Your own profile; staff can read everyone's (for anonymous reports)
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+
+      // Everyone starts as a student. Nobody can create themselves as staff.
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == 'student'
+        && request.resource.data.keys().hasOnly(
+             ['fullName', 'email', 'role', 'notifyStatusUpdates', 'createdAt']);
+
+      // You can change your alerts setting and name, never your role
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && changedOnly(['notifyStatusUpdates', 'fullName']);
+
+      allow delete: if false;
+    }
+
+    // ---------- incidents ----------
+
+    match /incidents/{incidentId} {
+      allow read: if verified();
+
+      // New reports must belong to you and start clean
+      allow create: if verified()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.meTooCount == 0
+        && request.resource.data.meTooUserIds.size() == 0
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 500;
+
+      allow update: if verified() && (
+        // 1. The reporter edits their report while it's still "Submitted"
+        (resource.data.reporterId == request.auth.uid
+          && resource.data.status == 'submitted'
+          && changedOnly(['title', 'description', 'category', 'otherCategory',
+                          'location', 'locationDetail', 'urgency', 'isAnonymous',
+                          'reporterName', 'photoUrl', 'updatedAt']))
+        ||
+        // 2. Staff change the status (and nothing else)
+        (isStaff()
+          && changedOnly(['status', 'updatedAt'])
+          && validStatus(request.resource.data.status))
+        ||
+        // 3. Another student taps Me too
+        isMeTooChange()
+      );
+
+      // Only the reporter, only while "Submitted"
+      allow delete: if verified()
+        && resource.data.reporterId == request.auth.uid
+        && resource.data.status == 'submitted';
+
+      // ---------- incidents/{id}/updates (timeline) ----------
+
+      match /updates/{updateId} {
+        allow read: if verified();
+
+        allow create: if
+          // Staff adding a status step under their own name
+          (isStaff()
+            && request.resource.data.staffId == request.auth.uid
+            && validStatus(request.resource.data.status))
+          ||
+          // The reporter's first "Submitted" step, saved with the new report
+          (verified()
+            && !exists(/databases/$(database)/documents/incidents/$(incidentId))
+            && getAfter(/databases/$(database)/documents/incidents/$(incidentId)).data.reporterId == request.auth.uid
+            && request.resource.data.status == 'submitted'
+            && request.resource.data.staffId == null);
+
+        allow update: if false;
+
+        // Deleted together with its report
+        allow delete: if verified()
+          && get(/databases/$(database)/documents/incidents/$(incidentId)).data.reporterId == request.auth.uid
+          && get(/databases/$(database)/documents/incidents/$(incidentId)).data.status == 'submitted';
+      }
+    }
+
+    // ---------- notifications ----------
+
+    match /notifications/{notificationId} {
+      // Only your own alerts
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+
+      // Created only when staff update a status
+      allow create: if isStaff();
+
+      // You can only mark your own alerts as read
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && changedOnly(['isRead'])
+        && request.resource.data.isRead == true;
+
+      allow delete: if false;
+    }
+  }
+}
