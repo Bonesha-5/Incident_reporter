@@ -61,7 +61,7 @@ firestore.rules         Firestore security rules
 
 ### Run the app
 ```bash
-git clone [your repository link]
+git clone https://github.com/Bonesha-5/Incident_reporter.git
 cd alu_incident_reporter
 flutter pub get
 cp env.example.json env.json      # on Windows: copy env.example.json env.json
@@ -102,4 +102,4 @@ Unit tests cover form validation, the data models and date formatting. End-to-en
 - Search and filtering run on the device, which suits a single campus
 
 ## Author
-[Your full name], BSc Software Engineering, African Leadership University
+Uwineza Bonesha Kevine, BSc Software Engineering, African Leadership University
