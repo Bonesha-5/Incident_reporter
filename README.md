@@ -2,7 +2,7 @@
 
 A Flutter mobile app for African Leadership University where students report campus problems (water, electricity, facilities, furniture, sanitation, safety, internet) and campus staff track them to resolution.
 
-**Demo video:** [paste link]
+**Demo video:** https://youtu.be/gd8bi5Mfz5M
 **Technical report:** see the PDF submitted on the course page
 
 ## Features
